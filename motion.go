@@ -15,8 +15,11 @@ type Motion struct {
 }
 
 const (
-	maxMotion  = 50
-	ImageScale = 100
+	// We are making maxMotion^2*ImageSampleX*ImageSampleY distance comparisons per motion estimation.
+	maxMotion = 50
+
+	ImageSampleX = 64
+	ImageSampleY = 64
 )
 
 func estimateMotion(reference, candidate image.Image) Motion {
@@ -32,8 +35,8 @@ func estimateMotion(reference, candidate image.Image) Motion {
 			currentDist = 0
 			numberOfPixelsCompared = 0
 
-			for y := bounds.Min.Y; y < bounds.Max.Y; y += ImageScale {
-				for x := bounds.Min.X; x < bounds.Max.X; x += ImageScale {
+			for y := bounds.Min.Y; y < bounds.Max.Y; y += stepY {
+				for x := bounds.Min.X; x < bounds.Max.X; x += stepX {
 					if x+xMotion < bounds.Min.X || x+xMotion > bounds.Max.X ||
 						y+yMotion < bounds.Min.Y || y+yMotion > bounds.Max.Y {
 						continue
@@ -56,8 +59,6 @@ func estimateMotion(reference, candidate image.Image) Motion {
 				bestDist = currentDist
 			}
 		}
-		//fmt.Printf("xMotion=%d dist=%f bestDist=%f\n", xMotion, currentDist, bestDist)
-
 	}
 
 	return Motion{X: bestXMotion, Y: bestYMotion}
