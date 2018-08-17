@@ -7,8 +7,11 @@ import (
 	"image/png"
 	"os"
 
+	"github.com/disintegration/imaging"
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
+
+const supersample = false
 
 func main() {
 	images := os.Args[1:]
@@ -30,6 +33,8 @@ func main() {
 
 	motionCorrection := make([]Motion, len(loadedImages))
 
+	fmt.Printf("Reference %s\t 0 0\n", images[0])
+
 	var motion Motion
 	var found bool
 	for i := 1; i < len(images); i++ {
@@ -43,13 +48,18 @@ func main() {
 		motionCorrection[i] = motion
 		cache[images[i]] = motion
 		fmt.Printf("Motion calculated %s\t: %d %d\n", images[i], motionCorrection[i].X, motionCorrection[i].Y)
+		go cache.WriteToFile("/tmp/motion.json")
 	}
 
 	cache.WriteToFile("/tmp/motion.json")
 
+	if supersample {
+		loadedImages = upscale(loadedImages)
+	}
+
 	bounds := loadedImages[0].Bounds()
 
-	output := image.NewRGBA(bounds)
+	output := image.NewNRGBA(bounds)
 
 	var currentColor []colorful.Color
 
@@ -68,10 +78,44 @@ func main() {
 				currentColor = append(currentColor, rgbaToColorful(loadedImages[i].At(currX, currY)))
 			}
 			output.Set(x, y, averageColor(currentColor))
+			//output.Set(x, y, medianColor(currentColor))
 		}
+	}
+
+	// Downscale if necessary.
+	var o image.Image
+	if supersample {
+		o = downscale(output)
+	} else {
+		o = output
 	}
 
 	f, _ := os.Create("output.png")
 	defer f.Close()
-	png.Encode(f, output)
+	png.Encode(f, o)
+}
+
+func upscale(images []image.Image) []image.Image {
+	bounds := images[0].Bounds()
+	width := bounds.Max.X * 2
+	height := bounds.Max.Y * 2
+
+	for i := range images {
+		//images[i] = resize.Resize(width, height, images[i], resize.Lanczos3)
+		//images[i] = resize.Resize(width, height, images[i], resize.Bilinear)
+		//images[i] = resize.Resize(width, height, images[i], resize.NearestNeighbor)
+		images[i] = imaging.Resize(images[i], width, height, imaging.NearestNeighbor)
+	}
+
+	return images
+}
+
+func downscale(img *image.NRGBA) image.Image {
+	bounds := img.Bounds()
+	width := bounds.Max.X / 2
+	height := bounds.Max.Y / 2
+
+	img = imaging.Sharpen(img, 0.5)
+	return imaging.Resize(img, width, height, imaging.Lanczos)
+	//return resize.Resize(width, height, img, resize.Lanczos3)
 }

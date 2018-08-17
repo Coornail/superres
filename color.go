@@ -8,7 +8,7 @@ import (
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
-func averageColor(colors []colorful.Color) color.Color {
+func averageColor(colors []colorful.Color) colorful.Color {
 	var l, a, b float64
 
 	for i := range colors {
