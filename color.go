@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"sort"
 
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
@@ -24,21 +25,23 @@ func averageColor(colors []colorful.Color) colorful.Color {
 }
 
 func medianColor(colors []colorful.Color) colorful.Color {
-	var l, a, b []float64
-
 	c := len(colors)
-
 	if c == 1 {
 		return colors[0]
 	}
 
-	l = make([]float64, c)
-	a = make([]float64, c)
-	b = make([]float64, c)
+	l := make([]float64, c)
+	a := make([]float64, c)
+	b := make([]float64, c)
 
 	for i := range colors {
 		l[i], a[i], b[i] = colors[i].Lab()
 	}
+
+	// How do I order colors? By luminoscence?
+	sort.Slice(colors, func(i, j int) bool {
+		return l[i] < l[j]
+	})
 
 	if c%2 == 0 {
 		return colorful.Lab(l[c/2], a[c/2], b[c/2])
