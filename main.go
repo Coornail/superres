@@ -60,8 +60,8 @@ func main() {
 			for i := range images {
 				currX := x + motionCorrection[i].X
 				currY := y + motionCorrection[i].Y
-				if currX < bounds.Min.X || currX > bounds.Max.X ||
-					currY < bounds.Min.Y || currY > bounds.Max.Y {
+				if currX < bounds.Min.X || currX >= bounds.Max.X ||
+					currY < bounds.Min.Y || currY >= bounds.Max.Y {
 					continue
 				}
 
