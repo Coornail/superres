@@ -101,10 +101,7 @@ func upscale(images []image.Image) []image.Image {
 	height := bounds.Max.Y * 2
 
 	for i := range images {
-		//images[i] = resize.Resize(width, height, images[i], resize.Lanczos3)
-		//images[i] = resize.Resize(width, height, images[i], resize.Bilinear)
-		//images[i] = resize.Resize(width, height, images[i], resize.NearestNeighbor)
-		images[i] = imaging.Resize(images[i], width, height, imaging.NearestNeighbor)
+		images[i] = imaging.Resize(images[i], width, height, imaging.Gaussian)
 	}
 
 	return images
@@ -117,5 +114,4 @@ func downscale(img *image.NRGBA) image.Image {
 
 	img = imaging.Sharpen(img, 0.5)
 	return imaging.Resize(img, width, height, imaging.Lanczos)
-	//return resize.Resize(width, height, img, resize.Lanczos3)
 }
