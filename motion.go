@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+
+	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
 type Motion struct {
@@ -20,15 +22,27 @@ const (
 
 	ImageSampleX = 64
 	ImageSampleY = 64
+
+	/*
+		maxMotion = 15
+
+		ImageSampleX = 128
+		ImageSampleY = 128
+	*/
 )
 
 func estimateMotion(reference, candidate image.Image) Motion {
 	var bestXMotion, bestYMotion int
 	bounds := reference.Bounds()
 
+	ref := NewImageCache(reference)
+
 	var bestDist = math.MaxFloat64
 	var currentDist float64
 	var numberOfPixelsCompared int
+
+	stepX := int(bounds.Max.X / ImageSampleX)
+	stepY := int(bounds.Max.Y / ImageSampleY)
 
 	for xMotion := -maxMotion; xMotion <= maxMotion; xMotion++ {
 		for yMotion := -maxMotion; yMotion <= maxMotion; yMotion++ {
@@ -42,10 +56,10 @@ func estimateMotion(reference, candidate image.Image) Motion {
 						continue
 					}
 
-					referencePoint := reference.At(x, y)
+					referencePoint := ref.At(x, y)
 					candidatePoint := candidate.At(x+xMotion, y+yMotion)
 
-					d := distance(rgbaToColorful(referencePoint), rgbaToColorful(candidatePoint))
+					d := distance(referencePoint, rgbaToColorful(candidatePoint))
 					currentDist += d * d
 					numberOfPixelsCompared++
 				}
@@ -62,6 +76,39 @@ func estimateMotion(reference, candidate image.Image) Motion {
 	}
 
 	return Motion{X: bestXMotion, Y: bestYMotion}
+}
+
+type ImageCache struct {
+	Img       image.Image
+	cache     map[int]map[int]colorful.Color
+	CacheHit  int
+	CacheMiss int
+}
+
+func (ic *ImageCache) At(x, y int) (res colorful.Color) {
+	if cacheX, foundX := ic.cache[x]; foundX {
+		if res, foundY := cacheX[y]; foundY {
+			ic.CacheHit++
+			return res
+		}
+	} else {
+		ic.cache[x] = make(map[int]colorful.Color)
+	}
+
+	ic.CacheMiss++
+	color := rgbaToColorful(ic.Img.At(x, y))
+	ic.cache[x][y] = color
+
+	return color
+}
+
+func NewImageCache(img image.Image) *ImageCache {
+	var ic ImageCache
+
+	ic.Img = img
+	ic.cache = make(map[int]map[int]colorful.Color, 0)
+
+	return &ic
 }
 
 type MotionCache map[string]Motion
