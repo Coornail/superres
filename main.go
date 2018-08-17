@@ -11,47 +11,21 @@ import (
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
-const supersample = false
+const (
+	supersample = false
+
+	motionCachePath = "/tmp/motion.json"
+)
 
 func main() {
 	images := os.Args[1:]
 
-	var loadedImages []image.Image
-	for i := range images {
-		currImg, _ := os.Open(images[i])
-		defer currImg.Close()
-		decoded, _, err := image.Decode(currImg)
-		if err != nil {
-			panic(err)
-		}
-
-		loadedImages = append(loadedImages, decoded)
+	loadedImages, err := loadImages(images)
+	if err != nil {
+		panic(err)
 	}
 
-	cache := make(MotionCache, len(images))
-	cache.ReadFromFile("/tmp/motion.json")
-
-	motionCorrection := make([]Motion, len(loadedImages))
-
-	fmt.Printf("Reference %s\t 0 0\n", images[0])
-
-	var motion Motion
-	var found bool
-	for i := 1; i < len(images); i++ {
-		if motion, found = cache[images[i]]; found {
-			motionCorrection[i] = motion
-			fmt.Printf("Cached motion %s\t: %d %d\n", images[i], motion.X, motion.Y)
-			continue
-		}
-
-		motion = estimateMotion(loadedImages[0], loadedImages[i])
-		motionCorrection[i] = motion
-		cache[images[i]] = motion
-		fmt.Printf("Motion calculated %s\t: %d %d\n", images[i], motionCorrection[i].X, motionCorrection[i].Y)
-		go cache.WriteToFile("/tmp/motion.json")
-	}
-
-	cache.WriteToFile("/tmp/motion.json")
+	motionCorrection := getMotionCorrection(images, loadedImages)
 
 	if supersample {
 		loadedImages = upscale(loadedImages)
@@ -93,6 +67,51 @@ func main() {
 	f, _ := os.Create("output.png")
 	defer f.Close()
 	png.Encode(f, o)
+}
+
+func getMotionCorrection(imageNames []string, imgs []image.Image) []Motion {
+	motionCorrection := make([]Motion, len(imgs))
+
+	motionCache := make(MotionCache, len(imgs))
+	motionCache.ReadFromFile(motionCachePath)
+
+	fmt.Printf("Reference %s\t 0 0\n", imageNames[0])
+
+	var motion Motion
+	var found bool
+	for i := 1; i < len(imgs); i++ {
+		if motion, found = motionCache[imageNames[i]]; found {
+			motionCorrection[i] = motion
+			fmt.Printf("Cached motion %s\t: %d %d\n", imageNames[i], motion.X, motion.Y)
+			continue
+		}
+
+		motion = estimateMotion(imgs[0], imgs[i])
+		motionCorrection[i] = motion
+		motionCache[imageNames[i]] = motion
+		fmt.Printf("Motion calculated %s\t: %d %d\n", imageNames[i], motionCorrection[i].X, motionCorrection[i].Y)
+		go motionCache.WriteToFile(motionCachePath)
+	}
+
+	motionCache.WriteToFile(motionCachePath)
+
+	return motionCorrection
+}
+
+func loadImages(images []string) ([]image.Image, error) {
+	var loadedImages []image.Image
+	for i := range images {
+		currImg, _ := os.Open(images[i])
+		defer currImg.Close()
+		decoded, _, err := image.Decode(currImg)
+		if err != nil {
+			return loadedImages, err
+		}
+
+		loadedImages = append(loadedImages, decoded)
+	}
+
+	return loadedImages, nil
 }
 
 func upscale(images []image.Image) []image.Image {
