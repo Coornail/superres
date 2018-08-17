@@ -1,28 +1,36 @@
 package main
 
 import (
-	"fmt"
+	"bytes"
+	"encoding/json"
 	"image"
+	"io/ioutil"
 	"math"
+	"os"
 )
 
 type Motion struct {
-	x int
-	y int
+	X int
+	Y int
 }
+
+const (
+	maxMotion  = 50
+	ImageScale = 100
+)
 
 func estimateMotion(reference, candidate image.Image) Motion {
 	var bestXMotion, bestYMotion int
-	scale := 10
 	bounds := reference.Bounds()
 
 	var bestDist = math.MaxFloat64
 	var currentDist float64
+	var numberOfPixelsCompared int
 
 	for xMotion := -maxMotion; xMotion <= maxMotion; xMotion++ {
 		for yMotion := -maxMotion; yMotion <= maxMotion; yMotion++ {
 			currentDist = 0
-			numberOfPixelsCompared := 0
+			numberOfPixelsCompared = 0
 
 			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 				for x := bounds.Min.X; x < bounds.Max.X; x++ {
@@ -31,7 +39,7 @@ func estimateMotion(reference, candidate image.Image) Motion {
 						continue
 					}
 
-					if x%scale != 0 || y%scale != 0 {
+					if x%ImageScale != 0 || y%ImageScale != 0 {
 						continue
 					}
 
@@ -47,15 +55,35 @@ func estimateMotion(reference, candidate image.Image) Motion {
 			currentDist = currentDist / float64(numberOfPixelsCompared)
 
 			if currentDist < bestDist {
-				//fmt.Printf("Best dist so far\n")
 				bestXMotion = xMotion
 				bestYMotion = yMotion
 				bestDist = currentDist
 			}
 		}
-		fmt.Printf("xMotion=%d dist=%f bestDist=%f\n", xMotion, currentDist, bestDist)
+		//fmt.Printf("xMotion=%d dist=%f bestDist=%f\n", xMotion, currentDist, bestDist)
 
 	}
 
-	return Motion{x: bestXMotion, y: bestYMotion}
+	return Motion{X: bestXMotion, Y: bestYMotion}
+}
+
+type MotionCache map[string]Motion
+
+func (ms MotionCache) WriteToFile(filename string) error {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	if err := enc.Encode(ms); err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filename, buf.Bytes(), os.FileMode(0666|os.O_CREATE|os.O_TRUNC))
+}
+
+func (ms *MotionCache) ReadFromFile(filename string) error {
+	buf, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(buf, &ms)
 }
