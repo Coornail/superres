@@ -32,14 +32,10 @@ func estimateMotion(reference, candidate image.Image) Motion {
 			currentDist = 0
 			numberOfPixelsCompared = 0
 
-			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-				for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			for y := bounds.Min.Y; y < bounds.Max.Y; y += ImageScale {
+				for x := bounds.Min.X; x < bounds.Max.X; x += ImageScale {
 					if x+xMotion < bounds.Min.X || x+xMotion > bounds.Max.X ||
 						y+yMotion < bounds.Min.Y || y+yMotion > bounds.Max.Y {
-						continue
-					}
-
-					if x%ImageScale != 0 || y%ImageScale != 0 {
 						continue
 					}
 
