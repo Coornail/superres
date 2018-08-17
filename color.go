@@ -23,6 +23,31 @@ func averageColor(colors []colorful.Color) color.Color {
 	return colorful.Lab(l/c, a/c, b/c).Clamped()
 }
 
+func medianColor(colors []colorful.Color) colorful.Color {
+	var l, a, b []float64
+
+	c := len(colors)
+
+	if c == 1 {
+		return colors[0]
+	}
+
+	l = make([]float64, c)
+	a = make([]float64, c)
+	b = make([]float64, c)
+
+	for i := range colors {
+		l[i], a[i], b[i] = colors[i].Lab()
+	}
+
+	if c%2 == 0 {
+		return colorful.Lab(l[c/2], a[c/2], b[c/2])
+	}
+
+	i := int(math.Floor(float64(c) / 2.0))
+	return colorful.Lab((l[i]+l[i+1])/2.0, (a[i]+a[i+1])/2.0, (b[i]+b[i+1])/2.0).Clamped()
+}
+
 func rgbaToColorful(c color.Color) colorful.Color {
 	r, g, b, _ := c.RGBA()
 	res := colorful.Color{
