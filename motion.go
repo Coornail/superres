@@ -22,8 +22,7 @@ const (
 	// comparison on the potentially supersampled image.
 	maxMotion = 0.01
 
-	ImageSampleX = 64
-	ImageSampleY = 64
+	ImageSamples = 1024
 )
 
 func estimateMotion(reference, candidate image.Image) Motion {
@@ -36,12 +35,6 @@ func estimateMotion(reference, candidate image.Image) Motion {
 	var currentDist float64
 	var numberOfPixelsCompared int
 
-	stepX := bounds.Max.X / ImageSampleX
-	stepY := bounds.Max.Y / ImageSampleY
-
-	xStart := (bounds.Max.X % stepX) / 2
-	yStart := (bounds.Max.Y % stepY) / 2
-
 	maxXMotion := int(math.Round(float64(bounds.Max.X) * maxMotion))
 	maxYMotion := int(math.Round(float64(bounds.Max.Y) * maxMotion))
 
@@ -50,22 +43,22 @@ func estimateMotion(reference, candidate image.Image) Motion {
 			currentDist = 0
 			numberOfPixelsCompared = 0
 
-			for y := yStart; y < bounds.Max.Y; y += stepY {
-				for x := xStart; x < bounds.Max.X; x += stepX {
-					if x+xMotion < bounds.Min.X || x+xMotion > bounds.Max.X ||
-						y+yMotion < bounds.Min.Y || y+yMotion > bounds.Max.Y {
-						//fmt.Printf("Out of bounds: %d %d", x, y)
-						// @todo why does it go out of bounds?
-						continue
-					}
-
-					referencePoint := ref.At(x, y)
-					candidatePoint := candidate.At(x+xMotion, y+yMotion)
-
-					d := distance(referencePoint, rgbaToColorful(candidatePoint))
-					currentDist += d * d
-					numberOfPixelsCompared++
+			us := NewUniformSampler(reference, ImageSamples)
+			for us.HasMore() {
+				x, y := us.Next()
+				if x+xMotion < bounds.Min.X || x+xMotion > bounds.Max.X ||
+					y+yMotion < bounds.Min.Y || y+yMotion > bounds.Max.Y {
+					//fmt.Printf("Out of bounds: %d %d", x, y)
+					// @todo why does it go out of bounds?
+					continue
 				}
+
+				referencePoint := ref.At(x, y)
+				candidatePoint := candidate.At(x+xMotion, y+yMotion)
+
+				d := distance(referencePoint, rgbaToColorful(candidatePoint))
+				currentDist += d * d
+				numberOfPixelsCompared++
 			}
 
 			currentDist = currentDist / float64(numberOfPixelsCompared)
@@ -76,11 +69,6 @@ func estimateMotion(reference, candidate image.Image) Motion {
 				bestDist = currentDist
 			}
 		}
-		/*
-			if xMotion%10 == 0 {
-				verboseOutput("%d/%d\n", xMotion, maxXMotion)
-			}
-		*/
 	}
 
 	if bestXMotion == maxXMotion || bestXMotion == -maxXMotion ||
