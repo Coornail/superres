@@ -28,6 +28,8 @@ var (
 	verbose     bool
 	parallelism int
 	mergeMethod string
+	samplerName string
+	outputFile  string
 )
 
 func main() {
@@ -40,6 +42,8 @@ func main() {
 	flag.BoolVar(&verbose, "verbose", true, "Verbose output")
 	flag.IntVar(&parallelism, "parallelism", runtime.NumCPU(), "Number of threads to download the articles")
 	flag.StringVar(&mergeMethod, "mergeMethod", "median", "Method to merge pixels from the input images (median, average)")
+	flag.StringVar(&samplerName, "sampler", "gauss", "Sample images for motion detection (gauss, uniform, edge)")
+	flag.StringVar(&outputFile, "output", "output.png", "Output file name")
 	flag.Parse()
 
 	images := flag.Args()

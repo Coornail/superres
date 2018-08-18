@@ -39,17 +39,19 @@ func estimateMotion(reference, candidate image.Image) Motion {
 	maxXMotion := int(math.Round(float64(bounds.Max.X) * maxMotion))
 	maxYMotion := int(math.Round(float64(bounds.Max.Y) * maxMotion))
 
+	smp := GetSampler(reference, ImageSamples)
 	for xMotion := -maxXMotion; xMotion <= maxXMotion; xMotion++ {
 		for yMotion := -maxYMotion; yMotion <= maxYMotion; yMotion++ {
 			currentDist = 0
 			numberOfPixelsCompared = 0
 
-			us := sampler.NewUniformSampler(reference, ImageSamples)
-			for us.HasMore() {
-				x, y := us.Next()
+			smp.Reset()
+			for smp.HasMore() {
+				x, y := smp.Next()
+				//fmt.Printf("%d %d\n", x, y)
 				if x+xMotion < bounds.Min.X || x+xMotion > bounds.Max.X ||
 					y+yMotion < bounds.Min.Y || y+yMotion > bounds.Max.Y {
-					//fmt.Printf("Out of bounds: %d %d", x, y)
+					//fmt.Printf("Out of bounds: %d %d\n", x, y)
 					// @todo why does it go out of bounds?
 					continue
 				}
@@ -78,6 +80,20 @@ func estimateMotion(reference, candidate image.Image) Motion {
 	}
 
 	return Motion{X: bestXMotion, Y: bestYMotion}
+}
+
+func GetSampler(img image.Image, samples int) sampler.ImageSampler {
+	switch samplerName {
+	case "uniform":
+		return sampler.NewUniformSampler(img, samples)
+
+	case "edge":
+		return sampler.NewEdgeDetector(img, samples)
+
+	default:
+		return sampler.NewGaussSampler(img, samples)
+
+	}
 }
 
 type ImageCache struct {
