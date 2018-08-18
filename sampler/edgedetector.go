@@ -68,10 +68,10 @@ func (ed EdgeDetector) NumberOfEdges() int {
 func NewEdgeDetector(img image.Image, samples int) *EdgeDetector {
 	res := imaging.Convolve3x3(
 		img,
-		[9]float64{
-			-0.25, 0, 0.25,
-			0, 0, 0,
-			0.25, 0, -0.25,
+		[9]float64{ // https://en.wikipedia.org/wiki/Sobel_operator
+			1.0, 0, -1.0,
+			2.0, 0, -2.0,
+			1.0, 0, -1.0,
 		},
 		nil,
 	)
@@ -82,9 +82,14 @@ func NewEdgeDetector(img image.Image, samples int) *EdgeDetector {
 	}
 
 	// Calculate the treshold dynamically to be one step smaller than the samples.
-	ed.Treshold = 2048
+	ed.Treshold = 1
 	for ed.NumberOfEdges() > samples {
 		ed.Treshold *= 2
+	}
+
+	// We went too far, let's take a step back.
+	if ed.NumberOfEdges() == 0 {
+		ed.Treshold /= 2
 	}
 
 	return &ed
