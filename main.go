@@ -6,7 +6,11 @@ import (
 	"image"
 	_ "image/jpeg"
 	"image/png"
+	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
+	"runtime"
 
 	"github.com/disintegration/imaging"
 	colorful "github.com/lucasb-eyer/go-colorful"
@@ -22,6 +26,7 @@ var (
 	supersample bool
 	sharpen     bool
 	verbose     bool
+	parallelism int
 	mergeMethod string
 )
 
@@ -33,6 +38,7 @@ func main() {
 	flag.BoolVar(&supersample, "supersample", true, "Supersample image")
 	flag.BoolVar(&sharpen, "sharpen", true, "Sharpen output image")
 	flag.BoolVar(&verbose, "verbose", true, "Verbose output")
+	flag.IntVar(&parallelism, "parallelism", runtime.NumCPU(), "Number of threads to download the articles")
 	flag.StringVar(&mergeMethod, "mergeMethod", "median", "Method to merge pixels from the input images (median, average)")
 	flag.Parse()
 
@@ -108,22 +114,44 @@ func getMotionCorrection(imageNames []string, imgs []image.Image) []Motion {
 	motionCache := make(MotionCache, len(imgs))
 	motionCache.ReadFromFile(motionCachePath)
 
-	fmt.Printf("Reference %s\t 0 0\n", imageNames[0])
+	fmt.Printf("Reference %s:\t 0 0\n", imageNames[0])
 
-	var motion Motion
-	var found bool
-	for i := 1; i < len(imgs); i++ {
-		if motion, found = motionCache[imageNames[i]]; found {
-			motionCorrection[i] = motion
-			verboseOutput("Cached motion %s\t: %d %d\n", imageNames[i], motion.X, motion.Y)
-			continue
+	type jobResult struct {
+		i      int
+		motion Motion
+	}
+
+	motionWorker := func(jobs chan int, ch chan jobResult) {
+		for i := range jobs {
+			if motion, found := motionCache[imageNames[i]]; found {
+				motionCorrection[i] = motion
+				verboseOutput("Cached motion: %s\t %d %d\n", imageNames[i], motion.X, motion.Y)
+				ch <- jobResult{i: i, motion: motion}
+			} else {
+				motion := estimateMotion(imgs[0], imgs[i])
+				motionCorrection[i] = motion
+				motionCache[imageNames[i]] = motion
+				verboseOutput("Motion calculated: %s\t %d %d\n", imageNames[i], motionCorrection[i].X, motionCorrection[i].Y)
+				ch <- jobResult{i: i, motion: motion}
+			}
 		}
+	}
 
-		motion = estimateMotion(imgs[0], imgs[i])
-		motionCorrection[i] = motion
-		motionCache[imageNames[i]] = motion
-		verboseOutput("Motion calculated %s\t: %d %d\n", imageNames[i], motionCorrection[i].X, motionCorrection[i].Y)
-		go motionCache.WriteToFile(motionCachePath)
+	jobQueue := make(chan int, len(imgs))
+	resultQueue := make(chan jobResult, len(imgs))
+
+	for w := 0; w < parallelism; w++ {
+		go motionWorker(jobQueue, resultQueue)
+	}
+
+	for i := 1; i < len(imageNames); i++ {
+		jobQueue <- i
+	}
+	close(jobQueue)
+
+	for i := 1; i < len(imageNames); i++ {
+		result := <-resultQueue
+		motionCorrection[result.i] = result.motion
 	}
 
 	motionCache.WriteToFile(motionCachePath)

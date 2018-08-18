@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"image"
 	"io/ioutil"
 	"math"
@@ -17,18 +18,12 @@ type Motion struct {
 }
 
 const (
-	// We are making maxMotion^2*ImageSampleX*ImageSampleY distance comparisons per motion estimation.
-	maxMotion = 50
+	// We make  (imageX*maxMotion)*(imageY*maxMotion)*(imageX*ImageSampleX)*(imageY*ImageSampleY)
+	// comparison on the potentially supersampled image.
+	maxMotion = 0.01
 
 	ImageSampleX = 64
 	ImageSampleY = 64
-
-	/*
-		maxMotion = 15
-
-		ImageSampleX = 128
-		ImageSampleY = 128
-	*/
 )
 
 func estimateMotion(reference, candidate image.Image) Motion {
@@ -41,18 +36,26 @@ func estimateMotion(reference, candidate image.Image) Motion {
 	var currentDist float64
 	var numberOfPixelsCompared int
 
-	stepX := int(bounds.Max.X / ImageSampleX)
-	stepY := int(bounds.Max.Y / ImageSampleY)
+	stepX := bounds.Max.X / ImageSampleX
+	stepY := bounds.Max.Y / ImageSampleY
 
-	for xMotion := -maxMotion; xMotion <= maxMotion; xMotion++ {
-		for yMotion := -maxMotion; yMotion <= maxMotion; yMotion++ {
+	xStart := (bounds.Max.X % stepX) / 2
+	yStart := (bounds.Max.Y % stepY) / 2
+
+	maxXMotion := int(math.Round(float64(bounds.Max.X) * maxMotion))
+	maxYMotion := int(math.Round(float64(bounds.Max.Y) * maxMotion))
+
+	for xMotion := -maxXMotion; xMotion <= maxXMotion; xMotion++ {
+		for yMotion := -maxYMotion; yMotion <= maxYMotion; yMotion++ {
 			currentDist = 0
 			numberOfPixelsCompared = 0
 
-			for y := bounds.Min.Y; y < bounds.Max.Y; y += stepY {
-				for x := bounds.Min.X; x < bounds.Max.X; x += stepX {
+			for y := yStart; y < bounds.Max.Y; y += stepY {
+				for x := xStart; x < bounds.Max.X; x += stepX {
 					if x+xMotion < bounds.Min.X || x+xMotion > bounds.Max.X ||
 						y+yMotion < bounds.Min.Y || y+yMotion > bounds.Max.Y {
+						//fmt.Printf("Out of bounds: %d %d", x, y)
+						// @todo why does it go out of bounds?
 						continue
 					}
 
@@ -73,6 +76,16 @@ func estimateMotion(reference, candidate image.Image) Motion {
 				bestDist = currentDist
 			}
 		}
+		/*
+			if xMotion%10 == 0 {
+				verboseOutput("%d/%d\n", xMotion, maxXMotion)
+			}
+		*/
+	}
+
+	if bestXMotion == maxXMotion || bestXMotion == -maxXMotion ||
+		bestYMotion == maxYMotion || bestYMotion == -maxYMotion {
+		fmt.Printf("Warning: Hit motion limit, consider raising maxMotion! bestXmotion: %d maxXMotion: %d | bestYMotion: %d maxYMotion: %d\n", bestXMotion, maxXMotion, bestYMotion, maxYMotion)
 	}
 
 	return Motion{X: bestXMotion, Y: bestYMotion}
