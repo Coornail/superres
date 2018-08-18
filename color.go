@@ -9,6 +9,8 @@ import (
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
+type ColorMerge func([]colorful.Color) colorful.Color
+
 func averageColor(colors []colorful.Color) colorful.Color {
 	var l, a, b float64
 

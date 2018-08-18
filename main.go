@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -12,34 +13,70 @@ import (
 )
 
 const (
-	supersample = false
-
 	motionCachePath = "/tmp/motion.json"
+
+	sharpenSigma = 0.5
+)
+
+var (
+	supersample bool
+	sharpen     bool
+	verbose     bool
+	mergeMethod string
 )
 
 func main() {
-	images := os.Args[1:]
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
+
+	flag.BoolVar(&supersample, "supersample", true, "Supersample image")
+	flag.BoolVar(&sharpen, "sharpen", true, "Sharpen output image")
+	flag.BoolVar(&verbose, "verbose", true, "Verbose output")
+	flag.StringVar(&mergeMethod, "mergeMethod", "median", "Method to merge pixels from the input images (median, average)")
+	flag.Parse()
+
+	images := flag.Args()
 
 	loadedImages, err := loadImages(images)
 	if err != nil {
 		panic(err)
 	}
 
-	motionCorrection := getMotionCorrection(images, loadedImages)
-
 	if supersample {
 		loadedImages = upscale(loadedImages)
 	}
 
-	bounds := loadedImages[0].Bounds()
+	motionCorrection := getMotionCorrection(images, loadedImages)
 
+	var colorMergeMethod ColorMerge = medianColor
+	if mergeMethod == "average" {
+		colorMergeMethod = averageColor
+	}
+
+	output := superres(loadedImages, motionCorrection, colorMergeMethod)
+
+	if sharpen {
+		output = imaging.Sharpen(output, sharpenSigma)
+	}
+
+	if supersample {
+		output = downscale(output)
+	}
+
+	f, _ := os.Create("output.png")
+	defer f.Close()
+	png.Encode(f, output)
+}
+
+func superres(images []image.Image, motionCorrection []Motion, colorMergeMethod ColorMerge) *image.NRGBA {
+	bounds := images[0].Bounds()
 	output := image.NewNRGBA(bounds)
 
 	var currentColor []colorful.Color
-
 	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
 		for x := bounds.Min.X; x < bounds.Max.X; x++ {
-			currentColor = make([]colorful.Color, 0)
+			currentColor = []colorful.Color{}
 
 			for i := range images {
 				currX := x + motionCorrection[i].X
@@ -49,24 +86,20 @@ func main() {
 					continue
 				}
 
-				currentColor = append(currentColor, rgbaToColorful(loadedImages[i].At(currX, currY)))
+				currentColor = append(currentColor, rgbaToColorful(images[i].At(currX, currY)))
 			}
-			output.Set(x, y, averageColor(currentColor))
-			//output.Set(x, y, medianColor(currentColor))
+			output.Set(x, y, colorMergeMethod(currentColor))
 		}
 	}
 
-	// Downscale if necessary.
-	var o image.Image
-	if supersample {
-		o = downscale(output)
-	} else {
-		o = output
-	}
+	return output
+}
 
-	f, _ := os.Create("output.png")
-	defer f.Close()
-	png.Encode(f, o)
+func verboseOutput(format string, args ...interface{}) {
+	if verbose {
+		fmt.Printf(format, args...)
+
+	}
 }
 
 func getMotionCorrection(imageNames []string, imgs []image.Image) []Motion {
@@ -82,14 +115,14 @@ func getMotionCorrection(imageNames []string, imgs []image.Image) []Motion {
 	for i := 1; i < len(imgs); i++ {
 		if motion, found = motionCache[imageNames[i]]; found {
 			motionCorrection[i] = motion
-			fmt.Printf("Cached motion %s\t: %d %d\n", imageNames[i], motion.X, motion.Y)
+			verboseOutput("Cached motion %s\t: %d %d\n", imageNames[i], motion.X, motion.Y)
 			continue
 		}
 
 		motion = estimateMotion(imgs[0], imgs[i])
 		motionCorrection[i] = motion
 		motionCache[imageNames[i]] = motion
-		fmt.Printf("Motion calculated %s\t: %d %d\n", imageNames[i], motionCorrection[i].X, motionCorrection[i].Y)
+		verboseOutput("Motion calculated %s\t: %d %d\n", imageNames[i], motionCorrection[i].X, motionCorrection[i].Y)
 		go motionCache.WriteToFile(motionCachePath)
 	}
 
@@ -126,11 +159,10 @@ func upscale(images []image.Image) []image.Image {
 	return images
 }
 
-func downscale(img *image.NRGBA) image.Image {
+func downscale(img *image.NRGBA) *image.NRGBA {
 	bounds := img.Bounds()
 	width := bounds.Max.X / 2
 	height := bounds.Max.Y / 2
 
-	img = imaging.Sharpen(img, 0.5)
-	return imaging.Resize(img, width, height, imaging.Lanczos)
+	return imaging.Resize(img, width, height, imaging.CatmullRom)
 }
