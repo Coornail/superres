@@ -1,4 +1,4 @@
-package main
+package sampler
 
 import (
 	"fmt"
@@ -14,7 +14,7 @@ func TestUniformSampler(t *testing.T) {
 	output := image.NewNRGBA(bounds)
 	us := NewUniformSampler(output, 12)
 
-	renderSampler(us, output, "test.png")
+	renderSampler(us, output, "uniform.png")
 }
 
 func renderSampler(sampler ImageSampler, output *image.NRGBA, fileName string) {

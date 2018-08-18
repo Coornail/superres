@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 
+	"github.com/Coornail/superres/sampler"
 	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
@@ -43,7 +44,7 @@ func estimateMotion(reference, candidate image.Image) Motion {
 			currentDist = 0
 			numberOfPixelsCompared = 0
 
-			us := NewUniformSampler(reference, ImageSamples)
+			us := sampler.NewUniformSampler(reference, ImageSamples)
 			for us.HasMore() {
 				x, y := us.Next()
 				if x+xMotion < bounds.Min.X || x+xMotion > bounds.Max.X ||
