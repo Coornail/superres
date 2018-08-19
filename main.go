@@ -74,7 +74,7 @@ func main() {
 		output = downscale(output)
 	}
 
-	f, _ := os.Create("output.png")
+	f, _ := os.Create(outputFile)
 	defer f.Close()
 	png.Encode(f, output)
 }
