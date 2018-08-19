@@ -1,10 +1,12 @@
 package sampler
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 
 	"github.com/disintegration/imaging"
+	colorful "github.com/lucasb-eyer/go-colorful"
 )
 
 type EdgeDetector struct {
@@ -66,15 +68,70 @@ func (ed EdgeDetector) NumberOfEdges() int {
 }
 
 func NewEdgeDetector(img image.Image, samples int) *EdgeDetector {
-	res := imaging.Convolve3x3(
+	// Denoise using a gauss operator.
+	// https://en.wikipedia.org/wiki/Canny_edge_detector
+	denoised := imaging.Convolve5x5(
 		img,
-		[9]float64{ // https://en.wikipedia.org/wiki/Sobel_operator
+		[25]float64{
+			2.0 / 159.0, 4.0 / 159.0, 5.0 / 159.0, 4.0 / 159.0, 2.0 / 159.0,
+			4.0 / 159.0, 9.0 / 159.0, 12.0 / 159.0, 9.0 / 159.0, 4.0 / 159.0,
+			5.0 / 159.0, 12.0 / 159.0, 15.0 / 159.0, 12.0 / 159.0, 5.0 / 159.0,
+			4.0 / 159.0, 9.0 / 159.0, 12.0 / 159.0, 9.0 / 159.0, 4.0 / 159.0,
+			2.0 / 159.0, 4.0 / 159.0, 5.0 / 159.0, 4.0 / 159.0, 2.0 / 159.0,
+		},
+		nil,
+	)
+
+	// Use two directional sobal operator.
+	// https://en.wikipedia.org/wiki/Sobel_operator
+	horizontal := imaging.Convolve3x3(
+		denoised,
+		[9]float64{
 			1.0, 0, -1.0,
 			2.0, 0, -2.0,
 			1.0, 0, -1.0,
 		},
 		nil,
 	)
+
+	vertical := imaging.Convolve3x3(
+		denoised,
+		[9]float64{
+			1.0, 2.0, 1.0,
+			0.0, 0.0, 0.0,
+			-1.0, -2.0, -1.0,
+		},
+		nil,
+	)
+
+	bounds := horizontal.Bounds()
+	res := image.NewNRGBA(bounds)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			h := horizontal.At(x, y)
+			v := vertical.At(x, y)
+
+			res.Set(x, y, sumColors([]colorful.Color{rgbaToColorful(h), rgbaToColorful(v)}))
+		}
+	}
+
+	// Line thinning.
+	// @TODO improve
+	black := colorful.LinearRgb(0.0, 0.0, 0.0)
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			if getBrightness(res.At(x, y)) > 128 {
+				res.Set(x-1, y-1, black)
+				res.Set(x-1, y, black)
+				res.Set(x-1, y+1, black)
+				res.Set(x, y-1, black)
+				res.Set(x, y+1, black)
+				res.Set(x+1, y-1, black)
+				res.Set(x+1, y, black)
+				res.Set(x+1, y+1, black)
+			}
+		}
+	}
 
 	ed := EdgeDetector{
 		Reference: res,
@@ -93,4 +150,46 @@ func NewEdgeDetector(img image.Image, samples int) *EdgeDetector {
 	}
 
 	return &ed
+}
+
+// @TODO move color to its own package.
+func sumColors(colors []colorful.Color) colorful.Color {
+	var l, a, b float64
+
+	for i := range colors {
+		currL, currA, currB := colors[i].Lab()
+		l += currL
+		a += currA
+		b += currB
+	}
+
+	return colorful.Lab(l, a, b).Clamped()
+}
+
+func rgbaToColorful(c color.Color) colorful.Color {
+	r, g, b, _ := c.RGBA()
+	res := colorful.Color{
+		R: float64(r) / 65535.0,
+		G: float64(g) / 65535.0,
+		B: float64(b) / 65535.0,
+	}
+
+	if res.R > 1.0 {
+		res.R = 1.0
+	}
+
+	if res.G > 1.0 {
+		res.G = 1.0
+	}
+
+	if res.B > 1.0 {
+		res.B = 1.0
+	}
+
+	if !res.IsValid() {
+		fmt.Printf("%#v\n", res)
+		panic("invalid color")
+	}
+
+	return res
 }
