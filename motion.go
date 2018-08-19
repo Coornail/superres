@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"math"
 	"os"
+	"time"
 
 	"github.com/Coornail/superres/sampler"
 	colorful "github.com/lucasb-eyer/go-colorful"
@@ -27,6 +28,8 @@ const (
 )
 
 func estimateMotion(reference, candidate image.Image) Motion {
+	start := time.Now()
+
 	var bestXMotion, bestYMotion int
 	bounds := reference.Bounds()
 
@@ -39,6 +42,8 @@ func estimateMotion(reference, candidate image.Image) Motion {
 	maxXMotion := int(math.Round(float64(bounds.Max.X) * maxMotion))
 	maxYMotion := int(math.Round(float64(bounds.Max.Y) * maxMotion))
 
+	i := 0
+
 	smp := GetSampler(reference, ImageSamples)
 	for xMotion := -maxXMotion; xMotion <= maxXMotion; xMotion++ {
 		for yMotion := -maxYMotion; yMotion <= maxYMotion; yMotion++ {
@@ -48,7 +53,6 @@ func estimateMotion(reference, candidate image.Image) Motion {
 			smp.Reset()
 			for smp.HasMore() {
 				x, y := smp.Next()
-				//fmt.Printf("%d %d\n", x, y)
 				if x+xMotion < bounds.Min.X || x+xMotion > bounds.Max.X ||
 					y+yMotion < bounds.Min.Y || y+yMotion > bounds.Max.Y {
 					//fmt.Printf("Out of bounds: %d %d\n", x, y)
@@ -66,11 +70,19 @@ func estimateMotion(reference, candidate image.Image) Motion {
 
 			currentDist = currentDist / float64(numberOfPixelsCompared)
 
-			if currentDist < bestDist {
+			if numberOfPixelsCompared > 0 && currentDist < bestDist {
 				bestXMotion = xMotion
 				bestYMotion = yMotion
 				bestDist = currentDist
 			}
+		}
+		i++
+
+		// It's taking a long time, report back.
+		elapsed := time.Since(start)
+		if i%100 == 0 && elapsed > time.Minute {
+			remaining := (elapsed.Seconds() / ((float64(xMotion) + float64(maxXMotion)) / (float64(maxXMotion) * 2.0))) - elapsed.Seconds()
+			verboseOutput("Motion detection: [%d/%d]\t Elapsed: %s \t ETA: %s\n", xMotion+maxXMotion, maxXMotion*2, elapsed, time.Duration(remaining)*time.Second)
 		}
 	}
 
