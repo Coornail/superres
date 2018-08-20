@@ -100,7 +100,7 @@ func GetSampler(img image.Image, samples int) sampler.ImageSampler {
 		return sampler.NewUniformSampler(img, samples)
 
 	case "edge":
-		return sampler.NewEdgeDetector(img, samples)
+		return sampler.NewSamplerCache(sampler.NewEdgeDetector(img, samples))
 
 	default:
 		return sampler.NewGaussSampler(img, samples)
