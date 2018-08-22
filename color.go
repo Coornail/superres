@@ -45,12 +45,12 @@ func medianColor(colors []colorful.Color) colorful.Color {
 		return l[i] < l[j]
 	})
 
-	if c%2 == 0 {
+	if c%2 == 1 {
 		return colorful.Lab(l[c/2], a[c/2], b[c/2])
 	}
 
 	i := int(math.Floor(float64(c) / 2.0))
-	return colorful.Lab((l[i]+l[i+1])/2.0, (a[i]+a[i+1])/2.0, (b[i]+b[i+1])/2.0).Clamped()
+	return colorful.Lab((l[i]+l[i-1])/2.0, (a[i]+a[i-1])/2.0, (b[i]+b[i-1])/2.0).Clamped()
 }
 
 func rgbaToColorful(c color.Color) colorful.Color {
