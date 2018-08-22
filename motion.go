@@ -101,17 +101,18 @@ func estimateMotion(reference, candidate image.Image) Motion {
 	return Motion{X: bestXMotion, Y: bestYMotion}
 }
 
+// GetSampler returns a sampling implementation for the image.
+// Comparing the whole picture would be too computational intensive, so we are forced to choose a subset of pixels to compare.
 func GetSampler(img image.Image, samples int) sampler.ImageSampler {
 	switch samplerName {
 	case "uniform":
 		return sampler.NewUniformSampler(img, samples)
-
-	case "edge":
-		return sampler.NewSamplerCache(sampler.NewEdgeDetector(img, samples))
-
-	default:
+	case "gauss":
 		return sampler.NewGaussSampler(img, samples)
-
+	default:
+		// Although it's slow to calculate the edges, it gives us the best indication when the intensity will change, hence delivering the best result.
+		// Unlike the others it is determinstic.
+		return sampler.NewSamplerCache(sampler.NewEdgeDetector(img, samples))
 	}
 }
 
