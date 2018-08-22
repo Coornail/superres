@@ -3,12 +3,10 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"image"
 	"io/ioutil"
 	"math"
 	"os"
-	"time"
 
 	"github.com/Coornail/superres/sampler"
 	colorful "github.com/lucasb-eyer/go-colorful"
@@ -22,33 +20,42 @@ type Motion struct {
 const (
 	// We make  (imageX*maxMotion)*(imageY*maxMotion)*(imageX*ImageSampleX)*(imageY*ImageSampleY)
 	// comparison on the potentially supersampled image.
-	maxMotion = 0.01
+	maxMotion = 0.05
 
 	ImageSamples = 1024
+
+	// Direction change in the spiral since we saw improvement in the picture differences.
+	// We change direction 4 times to go "full circle".
+	MaxDirectionChangeSinceImprovement = 32
 )
 
+// estimateMotion tries to move the candidate image to best match the reference image.
+// Comparing the reference image works by taking a sample (@see GetSampler) from both images and calculate the sum of square color differences.
 func estimateMotion(reference, candidate image.Image) Motion {
-	start := time.Now()
-
-	var bestXMotion, bestYMotion int
 	bounds := reference.Bounds()
-
 	ref := NewImageCache(reference)
 
+	var bestXMotion, bestYMotion int
 	var bestDist = math.MaxFloat64
-	var currentDist float64
-	var numberOfPixelsCompared int
 
-	maxXMotion := int(math.Round(float64(bounds.Max.X) * maxMotion))
-	maxYMotion := int(math.Round(float64(bounds.Max.Y) * maxMotion))
+	maxXMotion := math.Round(float64(bounds.Max.X) * maxMotion)
+	maxYMotion := math.Round(float64(bounds.Max.Y) * maxMotion)
 
-	i := 0
+	max := int(math.Max(maxXMotion, maxYMotion))
+	m2 := max * max
+
+	var xMotion, yMotion int
+	var dx, dy = 0, -1 // Direction.
+
+	directionChangeSinceImprovement := 0
 
 	smp := GetSampler(reference, ImageSamples)
-	for xMotion := -maxXMotion; xMotion <= maxXMotion; xMotion++ {
-		for yMotion := -maxYMotion; yMotion <= maxYMotion; yMotion++ {
-			currentDist = 0
-			numberOfPixelsCompared = 0
+
+	// Based on: https://stackoverflow.com/questions/398299/looping-in-a-spiral
+	for i := 0; i < m2; i++ {
+		if (-max/2 < xMotion && xMotion <= max/2) && (-max/2 < yMotion && yMotion <= max/2) {
+			currentDist := 0.0
+			numberOfPixelsCompared := 0
 
 			smp.Reset()
 			for smp.HasMore() {
@@ -74,21 +81,21 @@ func estimateMotion(reference, candidate image.Image) Motion {
 				bestXMotion = xMotion
 				bestYMotion = yMotion
 				bestDist = currentDist
+				directionChangeSinceImprovement = 0
 			}
 		}
-		i++
 
-		// It's taking a long time, report back.
-		elapsed := time.Since(start)
-		if i%100 == 0 && elapsed > time.Minute {
-			remaining := (elapsed.Seconds() / ((float64(xMotion) + float64(maxXMotion)) / (float64(maxXMotion) * 2.0))) - elapsed.Seconds()
-			verboseOutput("Motion detection: [%d/%d]\t Elapsed: %s \t ETA: %s\n", xMotion+maxXMotion, maxXMotion*2, elapsed, time.Duration(remaining)*time.Second)
+		// Change direction.
+		if xMotion == yMotion || (xMotion < 0 && xMotion == -yMotion) || (xMotion > 0 && xMotion == 1-yMotion) {
+			dx, dy = -dy, dx
+			directionChangeSinceImprovement++
 		}
-	}
+		xMotion, yMotion = xMotion+dx, yMotion+dy
 
-	if bestXMotion == maxXMotion || bestXMotion == -maxXMotion ||
-		bestYMotion == maxYMotion || bestYMotion == -maxYMotion {
-		fmt.Printf("Warning: Hit motion limit, consider raising maxMotion! bestXmotion: %d maxXMotion: %d | bestYMotion: %d maxYMotion: %d\n", bestXMotion, maxXMotion, bestYMotion, maxYMotion)
+		// If we haven't found an improvement for a long time, we give up.
+		if directionChangeSinceImprovement > MaxDirectionChangeSinceImprovement {
+			return Motion{X: bestXMotion, Y: bestYMotion}
+		}
 	}
 
 	return Motion{X: bestXMotion, Y: bestYMotion}
