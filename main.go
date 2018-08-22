@@ -158,7 +158,7 @@ func getMotionCorrection(imageNames []string, imgs []image.Image) []Motion {
 		motionCorrection[result.i] = result.motion
 	}
 
-	motionCache.WriteToFile(motionCachePath)
+	//motionCache.WriteToFile(motionCachePath)
 
 	return motionCorrection
 }
