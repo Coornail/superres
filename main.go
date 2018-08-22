@@ -129,13 +129,13 @@ func getMotionCorrection(imageNames []string, imgs []image.Image) []Motion {
 		for i := range jobs {
 			if motion, found := motionCache[imageNames[i]]; found {
 				motionCorrection[i] = motion
-				verboseOutput("Cached motion: %s\t %d %d\n", imageNames[i], motion.X, motion.Y)
+				verboseOutput("Cached motion: %s\t x:%d y:%d \t Diff: %f\n", imageNames[i], motion.X, motion.Y, motion.Diff)
 				ch <- jobResult{i: i, motion: motion}
 			} else {
 				motion := estimateMotion(imgs[0], imgs[i])
 				motionCorrection[i] = motion
 				motionCache[imageNames[i]] = motion
-				verboseOutput("Motion calculated: %s\t %d %d\n", imageNames[i], motionCorrection[i].X, motionCorrection[i].Y)
+				verboseOutput("Motion calculated: %s\t x:%d y:%d \t Diff: %f\n", imageNames[i], motionCorrection[i].X, motionCorrection[i].Y, motion.Diff)
 				ch <- jobResult{i: i, motion: motion}
 			}
 		}

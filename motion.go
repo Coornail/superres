@@ -13,8 +13,9 @@ import (
 )
 
 type Motion struct {
-	X int
-	Y int
+	X    int
+	Y    int
+	Diff float64
 }
 
 const (
@@ -94,11 +95,11 @@ func estimateMotion(reference, candidate image.Image) Motion {
 
 		// If we haven't found an improvement for a long time, we give up.
 		if directionChangeSinceImprovement > MaxDirectionChangeSinceImprovement {
-			return Motion{X: bestXMotion, Y: bestYMotion}
+			return Motion{X: bestXMotion, Y: bestYMotion, Diff: bestDist}
 		}
 	}
 
-	return Motion{X: bestXMotion, Y: bestYMotion}
+	return Motion{X: bestXMotion, Y: bestYMotion, Diff: bestDist}
 }
 
 // GetSampler returns a sampling implementation for the image.
