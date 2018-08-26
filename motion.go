@@ -30,6 +30,38 @@ const (
 	MaxDirectionChangeSinceImprovement = 128
 )
 
+// getOutliers returns the indexes for every motion that is over one standard deviation from the mean.
+func getOutliers(motions []Motion) []int {
+	outliers := make([]int, 0)
+
+	var mean float64
+	var sum float64
+	for _, m := range motions {
+		sum += m.Diff
+	}
+
+	N := float64(len(motions))
+
+	mean = sum / N
+
+	sum = 0
+	for _, m := range motions {
+		d := mean - m.Diff
+		sum += d * d
+	}
+
+	deviation := math.Sqrt(sum / N)
+
+	for i := range motions {
+		d := motions[i].Diff - mean
+		if d > deviation {
+			outliers = append(outliers, i)
+		}
+	}
+
+	return outliers
+}
+
 // estimateMotion tries to move the candidate image to best match the reference image.
 // Comparing the reference image works by taking a sample (@see GetSampler) from both images and calculate the sum of square color differences.
 func estimateMotion(reference, candidate image.Image) Motion {

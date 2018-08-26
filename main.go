@@ -59,6 +59,15 @@ func main() {
 
 	motionCorrection := getMotionCorrection(images, loadedImages)
 
+	outliers := getOutliers(motionCorrection)
+	for i := len(outliers) - 1; i >= 0; i-- {
+		index := outliers[i]
+		fmt.Printf("Pulling %s, because it's too different\n", images[index])
+		images = images[:index+copy(images[index:], images[index+1:])]
+		loadedImages = loadedImages[:index+copy(loadedImages[index:], loadedImages[index+1:])]
+		motionCorrection = motionCorrection[:index+copy(motionCorrection[index:], motionCorrection[index+1:])]
+	}
+
 	var colorMergeMethod ColorMerge = medianColor
 	if mergeMethod == "average" {
 		colorMergeMethod = averageColor
