@@ -41,7 +41,7 @@ func main() {
 	flag.BoolVar(&supersample, "supersample", true, "Supersample image")
 	flag.BoolVar(&sharpen, "sharpen", true, "Sharpen output image")
 	flag.BoolVar(&verbose, "verbose", true, "Verbose output")
-	flag.BoolVar(&fast, "fast", false, "Process images faster, trading quality")
+	flag.BoolVar(&fast, "fast", true, "Process images faster, trading quality")
 	flag.IntVar(&parallelism, "parallelism", runtime.NumCPU(), "Number of threads to download the articles")
 	flag.StringVar(&mergeMethod, "mergeMethod", "average", "Method to merge pixels from the input images (median, average)")
 	flag.StringVar(&samplerName, "sampler", "combined", "Sample images for motion detection (gauss, uniform, edge)")

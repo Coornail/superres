@@ -27,7 +27,7 @@ const (
 
 	// Direction change in the spiral since we saw improvement in the picture differences.
 	// We change direction 4 times to go "full circle".
-	MaxDirectionChangeSinceImprovement = 128
+	MaxDirectionChangeSinceImprovement = 32
 )
 
 // getOutliers returns the indexes for every motion that is over one standard deviation from the mean.
