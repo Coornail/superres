@@ -26,6 +26,7 @@ var (
 	supersample bool
 	sharpen     bool
 	verbose     bool
+	fast        bool
 	parallelism int
 	mergeMethod string
 	samplerName string
@@ -40,13 +41,17 @@ func main() {
 	flag.BoolVar(&supersample, "supersample", true, "Supersample image")
 	flag.BoolVar(&sharpen, "sharpen", true, "Sharpen output image")
 	flag.BoolVar(&verbose, "verbose", true, "Verbose output")
+	flag.BoolVar(&fast, "fast", false, "Process images faster, trading quality")
 	flag.IntVar(&parallelism, "parallelism", runtime.NumCPU(), "Number of threads to download the articles")
 	flag.StringVar(&mergeMethod, "mergeMethod", "average", "Method to merge pixels from the input images (median, average)")
-	flag.StringVar(&samplerName, "sampler", "gauss", "Sample images for motion detection (gauss, uniform, edge)")
+	flag.StringVar(&samplerName, "sampler", "combined", "Sample images for motion detection (gauss, uniform, edge)")
 	flag.StringVar(&outputFile, "output", "output.png", "Output file name")
 	flag.Parse()
-
 	images := flag.Args()
+	if fast {
+		samplerName = "gauss"
+		supersample = false
+	}
 
 	loadedImages, err := loadImages(images)
 	if err != nil {

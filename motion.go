@@ -146,8 +146,13 @@ func GetSampler(img image.Image, samples int) sampler.ImageSampler {
 		// Although it's slow to calculate the edges, it gives us the best indication when the intensity will change, hence delivering the best result.
 		// Unlike the others it is determinstic.
 		return sampler.NewSamplerCache(sampler.NewEdgeDetector(img, samples))
+	case "gauss":
+		return sampler.NewSamplerCache(sampler.NewGaussSampler(img, samples))
 	default:
-		return sampler.NewGaussSampler(img, samples)
+		s1 := sampler.NewGaussSampler(img, samples/2)
+		s2 := sampler.NewEdgeDetector(img, samples/2)
+		s := sampler.NewCombinedSampler(img, samples, s1, s2)
+		return sampler.NewSamplerCache(s)
 	}
 }
 
