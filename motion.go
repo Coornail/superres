@@ -23,11 +23,11 @@ const (
 	// comparison on the potentially supersampled image.
 	maxMotion = 0.05
 
-	ImageSamples = 1024
+	ImageSamples = 1024 * 8
 
 	// Direction change in the spiral since we saw improvement in the picture differences.
 	// We change direction 4 times to go "full circle".
-	MaxDirectionChangeSinceImprovement = 32
+	MaxDirectionChangeSinceImprovement = 128
 )
 
 // estimateMotion tries to move the candidate image to best match the reference image.
@@ -52,10 +52,12 @@ func estimateMotion(reference, candidate image.Image) Motion {
 
 	smp := GetSampler(reference, ImageSamples)
 
+	var currentDist float64
+
 	// Based on: https://stackoverflow.com/questions/398299/looping-in-a-spiral
 	for i := 0; i < m2; i++ {
 		if (-max/2 < xMotion && xMotion <= max/2) && (-max/2 < yMotion && yMotion <= max/2) {
-			currentDist := 0.0
+			currentDist = 0
 			numberOfPixelsCompared := 0
 
 			smp.Reset()
@@ -108,12 +110,12 @@ func GetSampler(img image.Image, samples int) sampler.ImageSampler {
 	switch samplerName {
 	case "uniform":
 		return sampler.NewUniformSampler(img, samples)
-	case "gauss":
-		return sampler.NewGaussSampler(img, samples)
-	default:
+	case "edge":
 		// Although it's slow to calculate the edges, it gives us the best indication when the intensity will change, hence delivering the best result.
 		// Unlike the others it is determinstic.
 		return sampler.NewSamplerCache(sampler.NewEdgeDetector(img, samples))
+	default:
+		return sampler.NewGaussSampler(img, samples)
 	}
 }
 
