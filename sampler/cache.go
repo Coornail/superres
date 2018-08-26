@@ -2,6 +2,7 @@ package sampler
 
 import (
 	"image"
+	"sort"
 )
 
 type ImageSamplerCache struct {
@@ -18,6 +19,7 @@ func (isc *ImageSamplerCache) HasMore() bool {
 		hasMore = isc.Sampler.HasMore()
 		if !hasMore {
 			isc.serveCache = true
+			isc.CompressCache()
 		}
 	} else {
 		hasMore = isc.i < len(isc.cache)
@@ -41,6 +43,21 @@ func (isc *ImageSamplerCache) Next() (x, y int) {
 
 func (isc *ImageSamplerCache) Reset() {
 	isc.i = 0
+}
+
+func (isc *ImageSamplerCache) CompressCache() {
+	sort.Slice(isc.cache, func(i, j int) bool {
+		return isc.cache[i].Y < isc.cache[j].Y &&
+			isc.cache[i].Y == isc.cache[j].Y && isc.cache[i].X < isc.cache[j].X
+	})
+
+	length := len(isc.cache)
+	for i := 0; i < length-1; i++ {
+		if isc.cache[i] == isc.cache[i+1] {
+			length--
+			isc.cache = isc.cache[:i+copy(isc.cache[i:], isc.cache[i+1:])]
+		}
+	}
 }
 
 func NewSamplerCache(sampler ImageSampler) *ImageSamplerCache {

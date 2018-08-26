@@ -38,7 +38,7 @@ func (ed *EdgeDetector) Next() (x, y int) {
 		}
 	}
 
-	return ed.bounds.Max.X, ed.bounds.Max.Y
+	return ed.bounds.Max.X / 2, ed.bounds.Max.Y / 2
 }
 
 func getBrightness(p color.Color) uint32 {
