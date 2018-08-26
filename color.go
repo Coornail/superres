@@ -82,8 +82,7 @@ func rgbaToColorful(c color.Color) colorful.Color {
 }
 
 func distance(c1, c2 colorful.Color) float64 {
-	// We are using CIE76 as CIE94 sometimes returns NaN.
-	d := c1.DistanceCIE76(c2)
+	d := c1.DistanceCIE94(c2)
 	if math.IsNaN(d) {
 		fmt.Printf("%s + %s = %#v\n", c1.Hex(), c2.Hex(), d)
 		panic("Color distance is NaN")

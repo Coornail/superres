@@ -67,7 +67,7 @@ func main() {
 	outliers := getOutliers(motionCorrection)
 	for i := len(outliers) - 1; i >= 0; i-- {
 		index := outliers[i]
-		fmt.Printf("Pulling %s, because it's too different\n", images[index])
+		fmt.Printf("Pulling %s, because it's too different (Diff: %f)\n", images[index], motionCorrection[index].Diff)
 		images = images[:index+copy(images[index:], images[index+1:])]
 		loadedImages = loadedImages[:index+copy(loadedImages[index:], loadedImages[index+1:])]
 		motionCorrection = motionCorrection[:index+copy(motionCorrection[index:], motionCorrection[index+1:])]
